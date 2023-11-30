@@ -1,4 +1,4 @@
-# lenovo-smart-paper
+# lenovo-smart-paper PDF creator
 Create PDF from Lenovo Smart Paper files (.leremarkfolder)
 
 ## Usage
