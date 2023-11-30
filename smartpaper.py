@@ -1,96 +1,47 @@
-#!/bin/python3
+import os
+import tkinter as tk
+from tkinter import ttk
+from tkinter.messagebox import showinfo
 
-import os, sys
+from smartpaper import *
 
-# install with: pip install img2pdf
-import img2pdf
-
-# install with: pip install pypdf
-from pypdf import PdfWriter, PdfReader
-
-
-def show_usage():
-    print(f"Usage: {sys.argv[0]} <leremark folder path>")
-    print(
-        '\tThe leremark folder name ends with ".leremarkfolder". Inside it there are .leremark and .png files.'
-    )
+library_dir = "..\outbox\My Device\Library"
+output_dir = "..\inbox"
+version = "0.0.1"
 
 
-def get_pdf_path(leremark_folder_path):
-    name = os.path.split(leremark_folder_path)[-1]
-    original_pdf = name.replace(".leremarkfolder", "")
-    return leremark_folder_path.replace(name, original_pdf)
+def run_conversion():
+    status["text"] = "working..."
+    src_dir = os.path.join(library_dir, selected_dir.get())
+    pdf_name = os.path.split(get_pdf_path(src_dir))[-1]
+    output_pdf = os.path.join(output_dir, pdf_name)
+    create_pdf(src_dir, output_pdf)
+    status["text"] = "done"
 
 
-def get_pages_to_modify(leremark_folder_path):
-    dic = {}
-    for file in os.listdir(leremark_folder_path):
-        file_path = os.path.join(leremark_folder_path, file)
-        if os.path.isfile(file_path):
-            name, extension = os.path.splitext(file_path)
-            name = os.path.split(name)[-1]  # ignore the full path
-            if extension in [".png"]:
-                dic[name] = {"index": int(name.replace("page", "")), "mask": file_path}
-    return dic
+root = tk.Tk()
+root.geometry("300x130")
+root.resizable(False, False)
+root.title(f"SmartPaper PDF {version}")
 
+label = ttk.Label(text="Library book:")
+label.pack(fill=tk.X, padx=5, pady=5)
 
-def create_pdf_from_png_mask(output_name, mask_path, mask_box):
-    with open(output_name, "wb") as f:
-        f.write(img2pdf.convert(mask_path))
+selected_dir = tk.StringVar()
+folder_cb = ttk.Combobox(root, textvariable=selected_dir)
+dirs = []
+for f in os.listdir(library_dir):
+    if os.path.isdir(os.path.join(library_dir, f)):
+        dirs.append(f)
+folder_cb["values"] = dirs
+folder_cb["state"] = "readonly"
+folder_cb.current(0)
+folder_cb.pack(fill=tk.X, padx=5, pady=5)
 
-    layout_fun = img2pdf.get_layout_fun(
-        pagesize=mask_box,
-        imgsize=None,
-        border=None,
-        fit=img2pdf.FitMode.fill,
-        auto_orient=False,
-    )
-    with open(output_name, "wb") as f:
-        f.write(img2pdf.convert(mask_path, layout_fun=layout_fun))
+convert_bt = ttk.Button(root, text="Merge and Replace", command=run_conversion)
+convert_bt.pack(fill=tk.X, padx=5, pady=5)
 
+status = ttk.Label(text="")
+status.pack(fill=tk.X, padx=5, pady=5)
 
-def create_pdf(leremark_folder_path):
-    original_pdf = get_pdf_path(leremark_folder_path)
-    if not os.path.isfile(original_pdf):
-        print("PDF file not found at expected location:", original_pdf)
-        exit(1)
-
-    print("original PDF file found at:", original_pdf)
-    pdf_writer = PdfWriter(clone_from=original_pdf)
-
-    pages = get_pages_to_modify(leremark_folder_path)
-    print("page annotations found:", list(pages.keys()))
-
-    print("starting...\n")
-    for key in pages.keys():
-        page = pages[key]
-        number = page["index"]
-        png_mask = page["mask"]
-        print(f"processing page {number}")
-
-        pdf_mask = f"temp{page['index']}.pdf"
-        print(f"creating {pdf_mask} mask from {png_mask}")
-        box = pdf_writer.pages[number - 1].mediabox
-        mask_box = (box.width, box.height)
-        print(f"page size is {mask_box}")
-        create_pdf_from_png_mask(pdf_mask, png_mask, mask_box)
-
-        stamp = PdfReader(pdf_mask).pages[0]
-        pdf_writer.pages[number - 1].merge_page(
-            stamp, over=True
-        )  # set 'over' to False for watermarking
-        os.remove(pdf_mask)
-        print("done\n")
-
-    output_pdf = os.path.split(original_pdf)[-1]
-    pdf_writer.write(output_pdf)
-    return os.path.abspath(output_pdf)
-
-
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        show_usage()
-        exit(1)
-
-    result = create_pdf(sys.argv[1])
-    print(f'created output: "{result}"')
+root.mainloop()
